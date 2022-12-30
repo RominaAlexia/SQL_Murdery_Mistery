@@ -1,1 +1,231 @@
 
+--Clues: 
+--Crime = Murder, Date = Jan.15,2018, Place = SQL City
+--Mission: First retrieve crime scene report
+--Notes: SQLlite
+
+SELECT name
+FROM sqlite_master
+WHERE type='table'
+
+--There are different types of tables, the one I am interested in is Crime_Scene_report
+
+SELECT sql 
+  FROM sqlite_master
+ where name = 'crime_scene_report'
+ 
+ --CREATE TABLE crime_scene_report 
+ --( date integer, type text, description text, city text )
+ 
+ --Testing my SQL skills to solve this crime:
+ 
+ SELECT *
+ FROM Crime_scene_report
+ 
+SELECT *
+ FROM Crime_scene_report
+ WHERE Type = 'murder'
+ AND City = 'SQL City'
+ AND `Date`= 20180115
+ 
+ -- Security footage shows that there were 2 witnesses. 
+ --The first witness lives at the last house on "Northwestern Dr". 
+ --The second witness, named Annabel, lives somewhere on "Franklin Ave".
+ 
+ --Let's interrogate first witness
+ 
+ SELECT *
+ FROM PERSON
+ 
+ SELECT *
+ FROM PERSON
+ WHERE Address_street_name = 'Northwestern Dr'
+ Order by Address_number Desc
+ 
+ --Witness: ID = 14887, Name = Morty Schapiro
+ -- Interrogate second witness:
+ 
+ SELECT *
+ FROM PERSON
+ WHERE Address_street_name = 'Franklin Ave'
+ 
+ SELECT *
+ FROM PERSON
+ WHERE NAME LIKE'Annabel%'
+ AND Address_street_name = 'Franklin Ave'
+ 
+ --Witness: ID = 16371, Name = Annabel Miller
+ -- I have these two ID 14887 and 16371
+ -- What do these two have in common?
+ -- We need to find the person_id for them in order to find what they said in
+ the interview
+ 
+ 
+SELECT *
+FROM interview
+WHERE 
+Person_ID IN (16371,14887) 
+ 
+ 
+ INTERVIEW RESULTS
+ --16371: I saw the murder happen, and I recognized the killer from my gym when 
+ I was working out last week on January the 9th.
+ --14887: 	I heard a gunshot and then saw a man run out. 
+ He had a "Get Fit Now Gym" bag. The membership number on the 
+ bag started with "48Z". Only gold members have those bags. 
+ The man got into a car with a plate that included "H42W".
+ 
+ --Man. @Gym on Jan 9th 2018. Gym Membership '48Z%'. Gold member. 
+ -- Car plate '%H42W%'
+ 
+ --Let's interrogate all the membership ID:
+ 
+ SELECT *
+FROM get_fit_now_check_in
+WHERE membership_id LIKE '48Z%'
+AND check_in_date = 20180109
+
+--Two matching:
+48Z7A / check in time 1600 / check out time 1730
+48Z55 / check in time 1530 / check out time 1700
+
+--Let's see who of these two have a gold membership
+SELECT *
+FROM get_fit_now_member
+WHERE ID IN ('48Z7A','48Z55')
+
+--both male, both have a gold membership
+48Z55	67318	Jeremy Bowers	20160101	gold
+48Z7A	28819	Joe Germuska	20160305	gold
+
+
+-- I need more info. Let's see the drivers license. 
+
+SELECT *
+FROM PERSON
+WHERE ID IN (67318,28819)
+
+id	name	license_id	address_number	address_street_name	ssn
+28819	Joe Germuska	173289	111	Fisk Rd	138909730
+67318	Jeremy Bowers	423327	530	Washington Pl, Apt 3A	871539279
+
+SELECT *
+FROM drivers_license
+WHERE ID IN (173289,423327)
+AND plate_number LIKE '%H42W%'
+
+--Match = 423327 - JEREMY - Yes, but
+--Congrats, you found the murderer! But wait, there's more... If you think you're 
+up for a challenge, try querying the interview transcript of the murderer to find 
+the real villain behind this crime. If you feel especially confident in your SQL 
+skills, try to complete this final step with no more than 2 queries. Use this same 
+INSERT statement with your new suspect to check your answer
+
+--Let's see who else has a car with that plate:
+
+SELECT *
+FROM drivers_license
+WHERE plate_number LIKE '%H42W%'
+
+id	age	height	eye_color	hair_color	gender	plate_number	car_make	car_model
+183779	21	65	blue	blonde	female	H42W0X	Toyota	Prius
+*NOPE* 423327	30	70	brown	brown	male	0H42W2	Chevrolet	Spark LS
+664760	21	71	black	black	male	4H42WR	Nissan	Altima
+
+--Let's find more info about these two other people:
+id	name	license_id	address_number	address_street_name	ssn
+51739	Tushar Chandra	664760	312	Phi St	137882671
+78193	Maxine Whitely	183779	110	Fisk Rd	137882671
+
+
+--Let's see what our 4 suspects have to say:
+SELECT *
+FROM INTERVIEW
+WHERE person_id IN (51739,78193,28819,67318)
+
+person_id	transcript
+67318 (Jeremy)
+I was hired by a woman with a lot of money. I don't know her name but I know 
+she's around 5'5" (65") or 5'7" (67"). She has red hair and she drives a Tesla Model S
+I know that she attended the SQL Symphony Concert 3 times in December 2017.
+
+--Let's confirm about this symphony event:
+SELECT *
+FROM facebook_event_checkin
+WHERE `DATE` LIKE '201712%'
+AND event_name LIKE '%Symphony%'
+
+--there are too many events on dec, I need to find who went three times
+SELECT person_Id, count(person_id) > 3
+FROM facebook_event_checkin
+WHERE `DATE` LIKE '201712%'
+AND event_name LIKE '%Symphony%'
+
+--Answer = 67318 (Jeremy?) This is not the answer.
+--Let's look at the characteristics of people that drive a tesla
+
+SELECT *
+From drivers_license
+WHERE car_make LIKE '%TESLA'
+AND car_model LIKE 'Model S'
+AND gender = 'female'
+AND hair_color = 'red'
+
+--three matches
+id	age	height	eye_color	hair_color	gender	plate_number	car_make	car_model
+202298	68	66	green	red	female	500123	Tesla	Model S
+291182	65	66	blue	red	female	08CM64	Tesla	Model S
+918773	48	65	black	red	female	917UU3	Tesla	Model S
+
+--I need their ssn to get their income and compare if they have a lot of money:
+SELECT *
+From person
+WHERE license_ID IN (202298, 291182, 918773)
+
+id	name	license_id	address_number	address_street_name	ssn
+78881	Red Korb	918773	107	Camerata Dr	961388910
+90700	Regina George	291182	332	Maple Ave	337169072
+99716	Miranda Priestly	202298	1883	Golden Ave	987756388
+
+--let's compare income
+SELECT *
+From income
+WHERE SSN IN (961388910, 337169072, 987756388)
+
+--There is only two with pretty similar incomes. 
+(name) ssn	annual_income
+(Red) 961388910	278000
+(Miranda) 987756388	310000
+
+--Which one of them attended the symphony
+
+SELECT *
+FROM facebook_event_checkin
+WHERE `DATE` LIKE '201712%'
+AND event_name LIKE '%Symphony%'
+AND person_id IN (78881, 99716)
+
+--Miranda attended three times to the concernt in Dec. Why I could not get the 
+result with count?
+SELECT person_id, event_name, count(*) as event_name
+FROM facebook_event_checkin
+where event_name LIKE '%Symphony%'
+AND `DATE` LIKE '201712%'
+group by person_id
+having count(*)=3
+
+Congrats, you found the brains behind the murder! 
+Everyone in SQL City hails you as the greatest SQL detective of all time. 
+Time to break out the champagne!
+
+
+
+
+
+
+
+
+
+
+ 
+ 
