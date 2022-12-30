@@ -1,2 +1,2 @@
-# SQL_Murdery_Mistery
+# SQL_Practise
 Practising what I am learning. 
